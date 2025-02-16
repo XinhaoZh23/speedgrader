@@ -7,36 +7,61 @@ class GradeCalculator:
         self.root = root
         self.root.title("Speed Grader Pro")
         self.root.geometry("700x900")
-        self.root.configure(bg='#f0f0f0')  # 设置背景色
+        
+        # 配置根窗口
+        self.root.configure(bg='#f0f0f0')
+        self.root.grid_columnconfigure(0, weight=1)  # 使内容水平居中
+        
+        # 创建主滚动框架
+        self.main_canvas = tk.Canvas(root, bg='#f0f0f0', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(root, orient="vertical", command=self.main_canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.main_canvas, style='Main.TFrame')
+        
+        # 配置滚动区域
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        )
+        self.main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="n")
+        self.main_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # 布局主要组件
+        self.main_canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        
+        # 配置画布权重
+        root.grid_rowconfigure(0, weight=1)
+        root.grid_columnconfigure(0, weight=1)
         
         # 配置主题样式
         self.configure_styles()
         
-        # 创建主框架
-        self.main_frame = ttk.Frame(root, padding="20", style='Main.TFrame')
-        self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        # 创建内容框架
+        content_frame = ttk.Frame(self.scrollable_frame, style='Main.TFrame', padding="20")
+        content_frame.grid(row=0, column=0, sticky="nsew")
+        content_frame.grid_columnconfigure(0, weight=1)  # 使内容在框架中居中
         
         # 添加标题
-        title_label = ttk.Label(self.main_frame, 
+        title_label = ttk.Label(content_frame, 
                               text="Speed Grader Pro", 
                               style='Title.TLabel')
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
         
         # 初始化问题数量输入区域
-        self.init_question_count_section()
+        self.init_question_count_section(content_frame)
         
         # 初始化分数输入区域（初始为空）
-        self.scores_frame = ttk.Frame(self.main_frame, style='Scores.TFrame')
-        self.scores_frame.grid(row=2, column=0, columnspan=2, pady=20)
+        self.scores_frame = ttk.Frame(content_frame, style='Scores.TFrame')
+        self.scores_frame.grid(row=2, column=0, columnspan=2, pady=20, sticky="ew")
+        self.scores_frame.grid_columnconfigure(0, weight=1)  # 使分数输入区域居中
         
         self.score_entries = []
         self.bonus_entries = []
         
         # 结果显示区域
-        result_frame = ttk.Frame(self.main_frame, style='Result.TFrame')
-        result_frame.grid(row=3, column=0, columnspan=2, pady=20, sticky=(tk.W, tk.E))
+        result_frame = ttk.Frame(content_frame, style='Result.TFrame')
+        result_frame.grid(row=3, column=0, columnspan=2, pady=20, sticky="ew")
+        result_frame.grid_columnconfigure(0, weight=1)  # 使结果区域居中
         
         result_label = ttk.Label(result_frame, text="Detailed Scores", style='SectionTitle.TLabel')
         result_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
@@ -46,20 +71,30 @@ class GradeCalculator:
         self.result_text.grid(row=1, column=0, columnspan=2, pady=5)
         
         # 添加总分显示标签
-        self.total_score_frame = ttk.Frame(self.main_frame, style='Total.TFrame')
-        self.total_score_frame.grid(row=4, column=0, columnspan=2, pady=20)
+        self.total_score_frame = ttk.Frame(content_frame, style='Total.TFrame')
+        self.total_score_frame.grid(row=4, column=0, columnspan=2, pady=20, sticky="ew")
+        self.total_score_frame.grid_columnconfigure(0, weight=1)  # 使总分区域居中
         
-        ttk.Label(self.total_score_frame, text="Total Score:", 
+        total_score_container = ttk.Frame(self.total_score_frame, style='Total.TFrame')
+        total_score_container.grid(row=0, column=0)
+        
+        ttk.Label(total_score_container, text="Total Score:", 
                  style='TotalLabel.TLabel').grid(row=0, column=0, padx=5)
-        self.total_score_label = ttk.Label(self.total_score_frame, text="0.0", 
+        self.total_score_label = ttk.Label(total_score_container, text="0.0", 
                                          style='TotalScore.TLabel')
         self.total_score_label.grid(row=0, column=1, padx=5)
         
         # 复制按钮
-        self.copy_button = ttk.Button(self.main_frame, text="Copy Results",
+        self.copy_button = ttk.Button(content_frame, text="Copy Results",
                                     command=self.copy_result, style='Action.TButton')
         self.copy_button.grid(row=5, column=0, columnspan=2, pady=20)
         self.copy_button.state(['disabled'])
+        
+        # 绑定鼠标滚轮事件
+        self.main_canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        
+    def _on_mousewheel(self, event):
+        self.main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def configure_styles(self):
         style = ttk.Style()
@@ -114,10 +149,14 @@ class GradeCalculator:
                        foreground=primary_color,
                        background='#f0f0f0')
 
-    def init_question_count_section(self):
+    def init_question_count_section(self, parent_frame):
         # 问题数量输入区域
-        question_frame = ttk.Frame(self.main_frame, style='Main.TFrame')
-        question_frame.grid(row=1, column=0, columnspan=2, pady=20)
+        question_frame = ttk.Frame(parent_frame, style='Main.TFrame')
+        question_frame.grid(row=1, column=0, columnspan=2, pady=20, sticky="ew")
+        question_frame.grid_columnconfigure(0, weight=1)  # 使问题输入区域居中
+        
+        input_container = ttk.Frame(question_frame, style='Main.TFrame')
+        input_container.grid(row=1, column=0)
         
         # 添加说明标签
         instruction_label = ttk.Label(question_frame, 
@@ -125,18 +164,18 @@ class GradeCalculator:
                                     style='SectionTitle.TLabel')
         instruction_label.grid(row=0, column=0, columnspan=4, pady=(0, 10))
         
-        ttk.Label(question_frame, text="Regular Questions:").grid(row=1, column=0, padx=10)
-        self.regular_count = ttk.Entry(question_frame, width=10)
-        self.regular_count.grid(row=1, column=1, padx=10)
+        ttk.Label(input_container, text="Regular Questions:").grid(row=0, column=0, padx=10)
+        self.regular_count = ttk.Entry(input_container, width=10)
+        self.regular_count.grid(row=0, column=1, padx=10)
         
-        ttk.Label(question_frame, text="Bonus Questions:").grid(row=1, column=2, padx=10)
-        self.bonus_count = ttk.Entry(question_frame, width=10)
-        self.bonus_count.grid(row=1, column=3, padx=10)
+        ttk.Label(input_container, text="Bonus Questions:").grid(row=0, column=2, padx=10)
+        self.bonus_count = ttk.Entry(input_container, width=10)
+        self.bonus_count.grid(row=0, column=3, padx=10)
         
         confirm_button = ttk.Button(question_frame, text="Confirm",
                                   command=self.create_score_entries,
                                   style='Action.TButton')
-        confirm_button.grid(row=2, column=0, columnspan=4, pady=20)
+        confirm_button.grid(row=2, column=0, pady=20)
 
     def create_score_entries(self):
         try:
@@ -157,37 +196,41 @@ class GradeCalculator:
             self.score_entries.clear()
             self.bonus_entries.clear()
             
+            # 创建容器来居中显示内容
+            scores_container = ttk.Frame(self.scores_frame, style='Scores.TFrame')
+            scores_container.grid(row=0, column=0)
+            
             # 添加说明标签
-            score_label = ttk.Label(self.scores_frame, 
+            score_label = ttk.Label(scores_container, 
                                   text="Enter scores for each question:",
                                   style='SectionTitle.TLabel')
             score_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
             
             # 创建常规题目的分数输入框
             for i in range(regular_count):
-                ttk.Label(self.scores_frame, text=f"Question {i+1}:").grid(
+                ttk.Label(scores_container, text=f"Question {i+1}:").grid(
                     row=i+1, column=0, padx=10, pady=5, sticky='e')
-                entry = ttk.Entry(self.scores_frame, width=10)
+                entry = ttk.Entry(scores_container, width=10)
                 entry.grid(row=i+1, column=1, padx=10, pady=5)
                 self.score_entries.append(entry)
             
             # 创建bonus题目的分数输入框
             if bonus_count > 0:
-                bonus_label = ttk.Label(self.scores_frame, 
+                bonus_label = ttk.Label(scores_container, 
                                       text="Bonus Questions",
                                       style='SectionTitle.TLabel')
                 bonus_label.grid(row=regular_count+1, column=0, columnspan=2, 
                                pady=(20, 10))
                 
                 for i in range(bonus_count):
-                    ttk.Label(self.scores_frame, text=f"Bonus {i+1}:").grid(
+                    ttk.Label(scores_container, text=f"Bonus {i+1}:").grid(
                         row=regular_count+i+2, column=0, padx=10, pady=5, sticky='e')
-                    entry = ttk.Entry(self.scores_frame, width=10)
+                    entry = ttk.Entry(scores_container, width=10)
                     entry.grid(row=regular_count+i+2, column=1, padx=10, pady=5)
                     self.bonus_entries.append(entry)
             
             # 添加计算按钮
-            calculate_button = ttk.Button(self.scores_frame, 
+            calculate_button = ttk.Button(scores_container, 
                                         text="Calculate Total",
                                         command=self.calculate_total,
                                         style='Action.TButton')
