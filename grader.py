@@ -6,11 +6,9 @@ class GradeCalculator:
     def __init__(self, root):
         self.root = root
         self.root.title("Speed Grader Pro")
-        self.root.geometry("700x900")
         
         # 配置根窗口
         self.root.configure(bg='#f0f0f0')
-        self.root.grid_columnconfigure(0, weight=1)  # 使内容水平居中
         
         # 创建主滚动框架
         self.main_canvas = tk.Canvas(root, bg='#f0f0f0', highlightthickness=0)
@@ -22,6 +20,10 @@ class GradeCalculator:
             "<Configure>",
             lambda e: self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
         )
+        
+        # 设置画布最小宽度
+        self.scrollable_frame.grid_columnconfigure(0, minsize=500)
+        
         self.main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="n")
         self.main_canvas.configure(yscrollcommand=scrollbar.set)
         
@@ -39,7 +41,7 @@ class GradeCalculator:
         # 创建内容框架
         content_frame = ttk.Frame(self.scrollable_frame, style='Main.TFrame', padding="20")
         content_frame.grid(row=0, column=0, sticky="nsew")
-        content_frame.grid_columnconfigure(0, weight=1)  # 使内容在框架中居中
+        content_frame.grid_columnconfigure(0, weight=1)
         
         # 添加标题
         title_label = ttk.Label(content_frame, 
@@ -93,6 +95,31 @@ class GradeCalculator:
         # 绑定鼠标滚轮事件
         self.main_canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         
+        # 等待所有组件加载完成后调整窗口大小
+        self.root.update()
+        
+        # 获取内容实际所需的大小
+        content_width = self.scrollable_frame.winfo_reqwidth() + scrollbar.winfo_reqwidth() + 40
+        content_height = min(800, self.scrollable_frame.winfo_reqheight() + 40)
+        
+        # 设置窗口大小
+        window_width = content_width
+        window_height = content_height
+        
+        # 获取屏幕尺寸
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # 计算窗口位置使其居中
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        # 设置窗口大小和位置
+        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        
+        # 禁止调整窗口大小
+        self.root.resizable(False, True)  # 只允许垂直方向调整
+
     def _on_mousewheel(self, event):
         self.main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
